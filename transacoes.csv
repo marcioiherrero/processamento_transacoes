@@ -1,0 +1,7 @@
+data,tipo,valor,descricao
+2024-01-10,credito,1000.00,Salário
+2024-01-12,debito,50.00,Supermercado
+2024-01-13,debito,30.00,Livraria
+2024-01-15,credito,500.00,Freelance
+2024-01-16,debito,abc,Descrição inválida
+2024-01-16,debito,200.00,Restaurante
