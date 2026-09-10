@@ -24,7 +24,7 @@ fn parse_linha(linha: &str, num_linha: usize) -> Result<Transacao, ErroTransacao
   let data = dados.get(0).ok_or(ErroTransacao::DataInvalida(num_linha, linha.to_string()))?;
   let tipo = dados.get(1).ok_or(ErroTransacao::TipoInvalido(num_linha, linha.to_string()))?;
   let valor = dados.get(2).ok_or(ErroTransacao::ValorInvalido(num_linha, linha.to_string()))?;
-  let valor = valor.replace('.', "").parse::<i64>().map_err(|_| ErroTransacao::ValorInvalido(num_linha, linha.to_string()))?;
+  let valor = valor.replace('.', "").parse::<i64>().map_err(|_| ErroTransacao::ValorInvalido(num_linha, format!("valor '{}' não é número válido", valor)))?;
   let descricao = dados.get(3).ok_or(ErroTransacao::LinhaInvalida(num_linha, linha.to_string()))?;
   
   let trs = Transacao {
@@ -57,10 +57,15 @@ fn ler_transacoes(caminho: &str) -> Result<Vec<Transacao>, ErroTransacao> {
     if let Err(erro) = &v {
       let trs_erro = Transacao {
         data: String::new(),
-        tipo: String::from("Erro"),
+        tipo: String::from("erro"),
         valor: 0,
         descricao: match erro {
-          _ => format!("{:?}", erro),
+          ErroTransacao::DataInvalida(l, t) => format!("- Linha {}: {}", l, t),
+          ErroTransacao::TipoInvalido(l, t) => format!("- Linha {}: {}", l, t),
+          ErroTransacao::ValorInvalido(l, t) => format!("- Linha {}: {}", l, t),
+          ErroTransacao::LinhaInvalida(l, t) => format!("- Linha {}: {}", l, t),
+          ErroTransacao::ArquivoNaoEncontrado(t) => format!("{}", t),
+          ErroTransacao::Erro(t) => format!("- Erro: {}", t),
         },
       };
       vec_trs.push(trs_erro);
@@ -70,7 +75,7 @@ fn ler_transacoes(caminho: &str) -> Result<Vec<Transacao>, ErroTransacao> {
     }
   }
   
-  gerar_relatorio(&vec_trs);
+  let _ = gerar_relatorio(&vec_trs);
   
   Ok(vec_trs)
 }
@@ -96,14 +101,12 @@ fn gerar_relatorio(transacoes: &[Transacao]) -> Result<(), ErroTransacao> {
   
   let max_debito = transacoes.iter()
     .filter(|x| x.tipo == "debito")
-    .map(|x| x.valor)
-    .max()
+    .max_by_key(|x| x.valor)
     .unwrap();
   
   let max_credito = transacoes.iter()
     .filter(|x| x.tipo == "credito")
-    .map(|x| x.valor)
-    .max()
+    .max_by_key(|x| x.valor)
     .unwrap();
   
   let saldo_final = v_credito - v_debito;
@@ -115,13 +118,16 @@ fn gerar_relatorio(transacoes: &[Transacao]) -> Result<(), ErroTransacao> {
   println!("=== RELATÓRIO DE TRANSAÇÕES ===");
   println!("Total de transações: {} (crédito: {}, débito: {}", total_transacoes, qtd_credito, qtd_debito);
   println!("Saldo final: R$ {:.2}", saldo_final as f64 / 100.0);
-  println!("Maior crédito: R$ {:.2} (Salário)", max_credito as f64 / 100.0);
-  println!("Maior débito: R$ {:.2} (Restaurante)", max_debito as f64 / 100.0);
-  println!("Erros encotrados");
+  println!("Maior crédito: R$ {:.2} ({})", max_credito.valor as f64 / 100.0, max_credito.descricao);
+  println!("Maior débito: R$ {:.2} ({})", max_debito.valor as f64 / 100.0, max_debito.descricao);
   
-  for e in transacoes.iter() {
-    if e.tipo == "Erro" {
-      println!("{}", e.descricao);
+  if transacoes.iter().count() > 0 {
+    println!("Erros encontrados:");
+    
+    for e in transacoes.iter() {
+      if e.tipo == "erro" {
+        println!("{}", e.descricao);
+      }
     }
   }
   
